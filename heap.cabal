@@ -56,3 +56,24 @@ Test-Suite heap-tests
   CPP-Options:       -D__TEST__
   GHC-Options:       -Wall -fwarn-tabs -fno-ignore-asserts
   Default-Language:  Haskell2010
+
+
+benchmark bench
+  type:              exitcode-stdio-1.0
+
+  build-depends:     base
+                   , heap
+                   , heaps
+                   , pqueue
+                   , random
+                   , tasty
+                   , tasty-bench
+                   , weigh
+
+  hs-source-dirs:    bench
+
+  main-is:           Main.hs
+
+  ghc-options:       -Wall
+
+  default-language:  Haskell2010
