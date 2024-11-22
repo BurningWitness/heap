@@ -26,6 +26,10 @@ jobs:
           - "9.2"
           - "9.10"
 
+        exclude:
+          - os: macos-latest
+            ghc: "8.6"
+
     steps:
 
     - uses: actions/checkout@v4

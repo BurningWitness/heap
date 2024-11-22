@@ -25,7 +25,7 @@ deriving instance Eq k => Eq (Reason k)
 
 
 fromList :: Ord k => [(k, a)] -> Heap k a
-fromList = foldl' (\z (k, a) -> Heap.insert k a z) Empty
+fromList = List.foldl' (\z (k, a) -> Heap.insert k a z) Empty
 
 toListMin :: Ord k => Heap k a -> [(k, a)]
 toListMin Empty              = []
