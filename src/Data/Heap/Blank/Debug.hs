@@ -34,7 +34,10 @@
 
 module Data.Heap.MODULE_NAME.Debug
   ( -- * Show
-    showsTree
+    showsHeap
+
+    -- * Eq
+  , eqHeap
 
     -- * Validate
   , Validity (..)
@@ -50,11 +53,11 @@ import           Data.Bits
 
 -- | \(\mathcal{O}(n)\). Shows the internal structure of the heap.
 #ifdef GENERIC
-showsTree :: (k -> ShowS) -> (a -> ShowS) -> Heap k a -> ShowS
-showsTree ks s h0 =
+showsHeap :: (k -> ShowS) -> (a -> ShowS) -> Heap k a -> ShowS
+showsHeap ks s h0 =
 #else
-showsTree :: (a -> ShowS) -> Heap a -> ShowS
-showsTree s h0 =
+showsHeap :: (a -> ShowS) -> Heap a -> ShowS
+showsHeap s h0 =
 #endif
   case h0 of
     None          -> showString "None"
@@ -85,6 +88,36 @@ showsTree s h0 =
                . showChar '\n' . go i h'
 
           Nil             -> showString "Nil"
+
+
+
+-- | \(\mathcal{O}(n)\).
+--   Checks whether the internal representations of two heaps are equal.
+#ifdef GENERIC
+eqHeap :: (k -> l -> Bool) -> (a -> b -> Bool) -> Heap k a -> Heap l b -> Bool
+eqHeap _   _  None None = True
+eqHeap keq eq (Heap m kx x t) (Heap n ky y o) = m == n && keq kx ky && eq x y && go t o
+  where
+    go Nil Nil = True
+    go (Tree ka a fa ff) (Tree kb b fb rr) =
+      keq ka kb && eq a b && go fa fb && go ff rr
+
+    go _ _ = False
+
+eqHeap _   _  _ _ = False
+#else
+eqHeap :: (a -> b -> Bool) -> Heap a -> Heap b -> Bool
+eqHeap _  None None = True
+eqHeap eq (Heap m kx x t) (Heap n ky y o) = m == n && kx == ky && eq x y && go t o
+  where
+    go Nil Nil = True
+    go (Tree ka a fa ff) (Tree kb b fb rr) =
+      ka == kb && eq a b && go fa fb && go ff rr
+
+    go _ _ = False
+
+eqHeap _  _ _ = False
+#endif
 
 
 

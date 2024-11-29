@@ -19,6 +19,9 @@ import           Test.Hspec
 
 
 
+instance (Eq k, Eq a) => Eq (Heap k a) where
+  (==) = Heap.eqHeap (==) (==)
+
 deriving instance Eq k => Eq (Validity k)
 deriving instance Eq k => Eq (Reason k)
 

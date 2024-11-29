@@ -198,41 +198,6 @@ instance NFData1 (Heap KEY_PARAM) where
 #endif
 
 
-instance (Eq a IMPLY_AND EQ) => Eq (Heap KEY_PARAM a) where
-#ifdef GENERIC
-  (==) = liftEq2 (==) (==)
-
-instance Eq k => Eq1 (Heap k) where
-  liftEq = liftEq2 (==)
-
-instance Eq2 Heap where
-  liftEq2 _   _  None None = True
-  liftEq2 keq eq (Heap _ kx x t) (Heap _ ky y o) = keq kx ky && eq x y && go t o
-    where
-      go Nil Nil = True
-      go (Tree ka a fa ff) (Tree kb b fb rr) =
-        keq ka kb && eq a b && go fa fb && go ff rr
-
-      go _ _ = False
-
-  liftEq2 _   _  _ _ = False
-#else
-  (==) = liftEq (==)
-
-instance Eq1 (Heap KEY_PARAM) where
-  liftEq _  None None = True
-  liftEq eq (Heap _ kx x t) (Heap _ ky y o) = kx == ky && eq x y && go t o
-    where
-      go Nil Nil = True
-      go (Tree ka a fa ff) (Tree kb b fb rr) =
-        ka == kb && eq a b && go fa fb && go ff rr
-
-      go _ _ = False
-
-  liftEq _  _ _ = False
-#endif
-
-
 instance ORD IMPLIES Semigroup (Heap KEY_PARAM a) where
   (<>) = union
 
@@ -322,7 +287,7 @@ data ViewMin KEY_PARAM a
 
                      -- | \(\mathcal{O}(\log n)\) thunk.
                      (Heap KEY_PARAM a)
-                   deriving (Show, Eq)
+                   deriving Show
 
 {-# INLINE viewMin #-}
 -- | \(\mathcal{O}(1)\).
