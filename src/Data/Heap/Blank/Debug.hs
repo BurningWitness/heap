@@ -74,7 +74,7 @@ showsHeap s h0 =
          . showChar '\n' . go 2 t
   where
     go i h =
-      mappend (replicate i ' ') .
+      mappend (Prelude.replicate i ' ') .
         case h of
           Tree k x f h' ->
             showString "Tree "

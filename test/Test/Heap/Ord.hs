@@ -15,6 +15,8 @@ import qualified Data.Heap.Ord.Debug as Heap
 import           Data.IORef
 import qualified Data.List as List
 import           Data.Monoid
+import           Data.Ord (Down (..))
+import           System.Random
 import           Test.Hspec
 
 
@@ -36,6 +38,56 @@ toListMin (Lookup k a :<| h) = (k, a) : toListMin h
 
 
 
+testReplicate :: Word -> Expectation
+testReplicate n = do
+  let h = Heap.replicate @Int n 1 'a'
+
+  (Heap.validate h, Heap.size h, toListMin h)
+    `shouldBe` (Valid, n, List.replicate (fromIntegral n) (1, 'a'))
+
+
+
+testReplace :: StdGen -> Word -> Expectation
+testReplace g n = do
+  let xs = [1 .. n * 2]
+      (ys, _) = uniformListR (fromIntegral n * 2) (1, 1000000 :: Word) g
+
+      values = List.sortOn snd $ zip xs ys
+      (as, bs) = List.splitAt (fromIntegral n) values
+
+      h = foldr (uncurry Heap.replace) (fromList as) bs
+
+      output = List.drop (fromIntegral n) $ List.sortOn fst values
+
+  (Heap.validate h, Heap.size h, toListMin h) `shouldBe` (Valid, n, output)
+
+
+
+testSortOn :: StdGen -> Int -> Expectation
+testSortOn g n = do
+  let xs = [1..n]
+      (ys, _) = uniformListR n (1, 1000000 :: Word) g
+
+      input = List.sortOn snd $ zip xs ys
+
+  Heap.sortOn fst input `shouldBe` List.sortOn fst input
+
+
+
+testTakeLargestOn :: StdGen -> Word -> Expectation
+testTakeLargestOn g n = do
+  let xs = [1..n]
+      (ys, _) = uniformListR (fromIntegral n) (1, 1000000 :: Word) g
+
+      input = List.sortOn snd $ zip xs ys
+
+      lim = n `quot` 3
+
+  Heap.takeLargestOn lim fst input
+    `shouldBe` take (fromIntegral lim) (List.sortOn (Down . fst) input)
+
+
+
 heap :: Spec
 heap = do
   it "empty" $
@@ -43,6 +95,52 @@ heap = do
 
   it "singleton" $
     toListMin (Heap.singleton @Int 1 'a') `shouldBe` [(1, 'a')]
+
+  describe "replicate" $ do
+    it "10" $ testReplicate 10
+    it "100" $ testReplicate 100
+    it "1000" $ testReplicate 1000
+
+  describe "insert/size/viewMin" $ do
+    it "Ascending" $ do
+      let ref = fmap (\x -> (x, negate x)) [1..256]
+
+          h = fromList @Int @Int ref
+
+      (Heap.validate h, Heap.size h, toListMin h)
+        `shouldBe` (Valid, 256, ref)
+
+    it "Descending" $ do
+      let ref = fmap (\x -> (x, negate x)) [1024,1023..1]
+
+          h = fromList @Int ref
+
+      (Heap.validate h, Heap.size h, toListMin h)
+        `shouldBe` (Valid, 1024, List.sortOn fst ref)
+
+    it "Zipped" $ do
+      let ref = mconcat $ zipWith (\a b -> [a,b])
+                            (fmap (\x -> (x, negate x)) [1,3..4095])
+                            (fmap (\x -> (x, negate x)) [4096,4094..2])
+
+          h = fromList @Int ref
+
+      (Heap.validate h, Heap.size h, toListMin h)
+        `shouldBe` (Valid, 4096, List.sortOn fst ref)
+
+  describe "replace" $ do
+    it "empty" $ do
+      Heap.replace @Int 1 'a' Heap.empty `shouldBe` Heap.empty
+
+    describe "singleton" $ do
+      it "EQ" $
+        Heap.replace @Int 1 'a' (Heap.singleton 1 'b') `shouldBe` Heap.singleton 1 'b'
+
+      it "GT" $
+        Heap.replace @Int 2 'a' (Heap.singleton 1 'b') `shouldBe` Heap.singleton 2 'a'
+
+    it "1000" $ do
+      testReplace (mkStdGen 1) 1000
 
   describe "insert/size/viewMin" $ do
     it "Ascending" $ do
@@ -261,3 +359,10 @@ heap = do
 
       (s, toListMin ref')
         `shouldBe` (sum $ fmap (\(k, a) -> k + a) ref, fmap (\(k, a) -> (k, k + a)) ref)
+
+  describe "sort" $ do
+    it "sortOn" $
+      testSortOn (mkStdGen 0) 1000
+
+    it "takeLargestOn" $
+      testTakeLargestOn (mkStdGen 1) 1000

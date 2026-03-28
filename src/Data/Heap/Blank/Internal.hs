@@ -41,8 +41,10 @@ module Data.Heap.MODULE_NAME.Internal
 
   , empty
   , singleton
+  , Data.Heap.MODULE_NAME.Internal.replicate
 
   , insert
+  , replace
 
   , union
 
@@ -86,6 +88,9 @@ module Data.Heap.MODULE_NAME.Internal
 
   , Data.Heap.MODULE_NAME.Internal.traverse
   , traverseWithKey
+
+  , sortOn
+  , takeLargestOn
   ) where
 
 import           Data.Heap.Common.Internal
@@ -102,7 +107,7 @@ import           Prelude hiding (map)
 -- | Spine-strict heap.
 data Heap KEY_PARAM a =
        Heap
-         {-# UNPACK #-} !Size
+         {-# UNPACK #-} !Size  -- ^ Size of the heap minus one.
          UNPACKED_KEY          -- ^ Smallest key in the heap.
          a                     -- ^ Value under the smallest key.
          !(Forest KEY_PARAM a)
@@ -241,10 +246,40 @@ singleton kx x = Heap 0 kx x Nil
 
 
 
+-- | \(\mathcal{O}(\log n)\). Heap of given size filled with the same entries.
+--
+--   @since 2.0.1
+replicate :: Size -> KEY -> a -> Heap KEY_PARAM a
+replicate n ka a
+  | n <= 0    = None
+  | otherwise = let n' = n - 1
+                in Heap n' ka a $ replicateF ka a n'
+
+replicateF :: KEY -> a -> Size -> Forest KEY_PARAM a
+replicateF ka a = go 0
+  where
+    go !i n
+      | n == 0    = Nil
+      | otherwise =
+          let ff = go (i + 1 :: Int) (unsafeShiftR n 1)
+
+          in if n .&. 1 == 0
+               then ff
+               else Tree ka a (build i) ff
+
+    build i
+      | i <= 0    = Nil
+      | otherwise = let ff = build (i - 1)
+                    in Tree ka a ff ff
+
+
 -- | \(\mathcal{O}(\log n)\). Insert a value in the heap with a given key.
 insert :: ORD IMPLIES KEY -> a -> Heap KEY_PARAM a -> Heap KEY_PARAM a
 insert !kx x None            = singleton kx x
-insert  kx x (Heap n ka a t) =
+insert  kx x (Heap n ka a t) = insert_ kx x n ka a t
+
+insert_ :: ORD IMPLIES KEY -> a -> Size -> KEY -> a -> Forest KEY_PARAM a -> Heap KEY_PARAM a
+insert_ kx x n ka a t =
   let !(# km, m, ky, y #) =
         if kx < ka
           then (# kx, x, ka, a #)
@@ -270,6 +305,47 @@ insertF n !ka a !fa fs =
                  !n' = unsafeShiftR n 1
 
              in insertF n' km m fm ff
+
+
+
+-- | \(\mathcal{O}(\log n)\). If the given key is greater than the smallest key in the heap,
+--   delete the smallest entry and insert the given one.
+--
+--   @'replace' k a@ is equivalent to @('deleteMin' . 'insert' k a)@, but more
+--   efficient as it doesn't need to adjust heap size.
+--
+--   @since 2.0.1
+replace :: ORD IMPLIES KEY -> a -> Heap KEY_PARAM a -> Heap KEY_PARAM a
+replace _  _ None                 = None
+replace kx x heap@(Heap n ka _ t) = replace_ kx x heap n ka t
+
+replace_ :: ORD IMPLIES KEY -> a -> Heap KEY_PARAM a -> Size -> KEY -> Forest KEY_PARAM a -> Heap KEY_PARAM a
+replace_ kx x heap n ka t
+  | kx <= ka  = heap
+  | otherwise =
+      let !(# ky, y, t' #) = replaceF kx x t
+
+      in Heap n ky y t'
+
+
+
+replaceF :: ORD IMPLIES KEY -> a -> Forest KEY_PARAM a -> (# KEY, a, Forest KEY_PARAM a #)
+replaceF kx x t = go (# kx, x, t #) kx id t
+  where
+    go !r !ka wrap fs =
+      case fs of
+        Nil             -> r
+        Tree kb b fb ff ->
+          let !(# r', kz #) =
+               if kb >= ka
+                 then (# r, ka #)
+                 else (# (# kb, b, let !(# ky, y, fy #) = replaceF kx x fb
+                                   in wrap $ Tree ky y fy ff
+                          #)
+                       , kb
+                       #)
+
+          in go r' kz (wrap . Tree kb b fb) ff
 
 
 
@@ -567,7 +643,7 @@ null None = True
 null _    = False
 
 -- | \(\mathcal{O}(1)\). Calculate the number of entries stored in the heap.
-size :: Heap KEY_PARAM a -> Word
+size :: Heap KEY_PARAM a -> Size
 size None           = 0
 size (Heap n _ _ _) = n + 1
 
@@ -749,3 +825,64 @@ traverseWithKey f (Heap n km m t) = liftA2 (Heap n km) (f km m) (go t)
   where
     go Nil               = pure Nil
     go (Tree ka a fa ff) = liftA3 (Tree ka) (f ka a) (go fa) (go ff)
+
+
+
+replaceWhenAbove :: ORD IMPLIES Size -> KEY -> a -> Heap KEY_PARAM a -> Heap KEY_PARAM a
+replaceWhenAbove s kx x None
+  | s > 0     = singleton kx x
+  | otherwise = None
+
+replaceWhenAbove s kx x heap@(Heap n ka a t)
+  | s > n + 1 = insert_ kx x n ka a t
+  | otherwise = replace_ kx x heap n ka t
+
+
+
+-- | \(\mathcal{O}(n \log n)\). Sort a list by comparing the results of a key function
+--   applied to each element.
+--
+--   Elements are arranged from lowest to highest, duplicates appear in arbitrary order.
+--
+--   @since 2.0.1
+sortOn :: ORD IMPLIES (a -> KEY) -> [a] -> [a]
+sortOn f = go None
+  where
+    go !heap xs =
+      case xs of
+        []   -> extract heap
+        x:ys ->
+          let heap' = insert (f x) x heap
+          in go heap' ys
+
+    extract heap =
+      case viewMin heap of
+        Nothing                    -> []
+        Just (Lookup _ z :< heap') -> z : extract heap'
+
+
+
+-- | \(\mathcal{O}(n \log n)\). Sort a list by comparing the results of a key function
+--   applied to each element and return at most the requested number of rightmost elements.
+--
+--   Elements are arranged from highest to lowest, duplicates appear in arbitrary order.
+--
+--   @'takeLargestOn' s f@ is equivalent to
+--   @('take' s . 'sortOn' ('Data.Ord.Down' . f))@, but its space complexity is
+--   \(\mathcal{O}(\min (s, n))\) instead of \(\mathcal{O}(n)\).
+--
+--   @since 2.0.1
+takeLargestOn :: ORD IMPLIES Size -> (a -> KEY) -> [a] -> [a]
+takeLargestOn n f = go None
+  where
+    go !heap xs =
+      case xs of
+        []   -> extract [] heap
+        x:ys ->
+          let heap' = replaceWhenAbove n (f x) x heap
+          in go heap' ys
+
+    extract !zs heap =
+      case viewMin heap of
+        Nothing                    -> zs
+        Just (Lookup _ z :< heap') -> extract (z:zs) heap'

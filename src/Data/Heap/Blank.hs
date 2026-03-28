@@ -85,14 +85,19 @@
 module Data.Heap.MODULE_NAME
   ( -- * Itself
     Heap (Empty, (:<|))
+  , Size
 
     -- * Construct
   , empty
   , singleton
+  , Data.Heap.MODULE_NAME.Internal.replicate
 
     -- * Single-key
     -- ** Insert
   , insert
+
+    -- ** Replace
+  , replace
 
     -- * Minimal-key
     -- ** Lookup
@@ -153,6 +158,9 @@ module Data.Heap.MODULE_NAME
     -- ** Union
   , union
 
+    -- * Sort
+  , sortOn
+  , takeLargestOn
   ) where
 
 import           Data.Heap.MODULE_NAME.Internal

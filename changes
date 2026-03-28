@@ -1,5 +1,11 @@
 Latest version: 2.0.0.0
 
+2.0.1.0
+=======
+- Exposed `Size` type synonym.
+- Added `replicate`, `replace`, `sortOn` and `takeLargestOn` functions.
+- Adjusted the type signature of `size` for consistency with new functions (it now returns `Size`).
+
 2.0.0.0
 =======
 - Full rewrite.

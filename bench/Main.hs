@@ -241,6 +241,24 @@ pqueue_wobble = go (0 :: Int)
 
 
 
+heap_word_wobble_replace :: Heap.Word.Heap Int -> [(Word, Int)] -> IO (Heap.Word.Heap Int)
+heap_word_wobble_replace = go (0 :: Int)
+  where
+    go !_ !h           []  = pure h
+    go  n  h ((k, a) : xs) =
+      let h' = Heap.Word.replace k a h
+      in go (n + 1) h' xs
+
+heap_ord_wobble_replace :: Heap.Ord.Heap Word Int -> [(Word, Int)] -> IO (Heap.Ord.Heap Word Int)
+heap_ord_wobble_replace = go (0 :: Int)
+  where
+    go !_ !h           []  = pure h
+    go  n  h ((k, a) : xs) =
+      let h' = Heap.Ord.replace k a h
+      in  go (n + 1) h' xs
+
+
+
 heap_word_bigWobble
   :: Int -> Int -> Heap.Word.Heap Int -> [(Word, Int)] -> IO (Heap.Word.Heap Int)
 heap_word_bigWobble k = go
@@ -369,6 +387,17 @@ main =
                 uncurry pqueue_wobble
           ]
 
+    , bgroup "replace" $
+        withWobblingSizes $ \base _ load ->
+          [ bench "Heap.Ord" $
+              flip whnfAppIO (heap_ord_populate Heap.Ord.empty base, load) $
+                uncurry heap_ord_wobble_replace
+
+          , bench "Heap.Word" $
+              flip whnfAppIO (heap_word_populate Heap.Word.empty base, load) $
+                uncurry heap_word_wobble_replace
+          ]
+
     , bgroup "wobble x50" $
         withWobblingSizes $ \base n load ->
           [ bench "Heap.Ord" $
@@ -386,5 +415,29 @@ main =
           , bench "MinPQueue" $
               flip whnfAppIO (pqueue_populate PQueue.empty base, load) $
                 uncurry (pqueue_bigWobble 50 n)
+          ]
+
+    , bgroup "sort" $
+        withOrderedSizes $ \load ->
+          [ bench "Heap.Ord" $
+              flip nf load $ Heap.Ord.sortOn fst
+
+          , bench "Heap.Word" $
+              flip nf load $ Heap.Word.sortOn fst
+
+          , bench "List" $
+              flip nf load $ List.sortOn fst
+          ]
+
+    , bgroup "take 25 . sort" $
+        withOrderedSizes $ \load ->
+          [ bench "Heap.Ord" $
+              flip nf load $ Heap.Ord.takeLargestOn 25 (Down . fst)
+
+          , bench "Heap.Word" $
+              flip nf load $ Heap.Word.takeLargestOn 25 (negate . fst)
+
+          , bench "List" $
+              flip nf load $ take 25 . List.sortOn fst
           ]
     ]

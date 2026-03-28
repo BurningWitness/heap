@@ -4,5 +4,7 @@ module Data.Heap.Common.Internal
 
 
 
--- | Number of entries in the heap, excluding the entry with the smallest key.
+-- | Heap size, as a separate type.
+--
+--   @since 2.0.1
 type Size = Word
