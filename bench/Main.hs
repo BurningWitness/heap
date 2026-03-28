@@ -431,10 +431,16 @@ main =
 
     , bgroup "take 25 . sort" $
         withOrderedSizes $ \load ->
-          [ bench "Heap.Ord" $
+          [ bench "Heap.Ord, naive" $
+              flip nf load $ take 25 . Heap.Ord.sortOn fst
+
+          , bench "Heap.Ord, optimal" $
               flip nf load $ Heap.Ord.takeLargestOn 25 (Down . fst)
 
-          , bench "Heap.Word" $
+          , bench "Heap.Word, naive" $
+              flip nf load $ take 25 . Heap.Word.sortOn fst
+
+          , bench "Heap.Word, optimal" $
               flip nf load $ Heap.Word.takeLargestOn 25 (negate . fst)
 
           , bench "List" $
