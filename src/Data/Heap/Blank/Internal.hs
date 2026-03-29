@@ -320,7 +320,7 @@ replace _  _ None                 = None
 replace kx x heap@(Heap n ka _ t) = replace_ kx x heap n ka t
 
 replace_ :: ORD IMPLIES KEY -> a -> Heap KEY_PARAM a -> Size -> KEY -> Forest KEY_PARAM a -> Heap KEY_PARAM a
-replace_ kx x heap n ka t
+replace_ kx x !heap !n ka !t
   | kx <= ka  = heap
   | otherwise =
       let !(# ky, y, t' #) = replaceF kx x t
@@ -330,22 +330,33 @@ replace_ kx x heap n ka t
 
 
 replaceF :: ORD IMPLIES KEY -> a -> Forest KEY_PARAM a -> (# KEY, a, Forest KEY_PARAM a #)
-replaceF kx x t = go (# kx, x, t #) kx id t
+replaceF kx x t = go kx x t t
   where
-    go !r !ka wrap fs =
+    go !ka a fa fs =
       case fs of
-        Nil             -> r
+        Nil             -> (# ka, a, fa #)
         Tree kb b fb ff ->
-          let !(# r', kz #) =
-               if kb >= ka
-                 then (# r, ka #)
-                 else (# (# kb, b, let !(# ky, y, fy #) = replaceF kx x fb
-                                   in wrap $ Tree ky y fy ff
-                          #)
-                       , kb
+          let !(# kz, z, fz #) =
+               if ka <= kb
+                 then (# ka, a, fa #)
+                 else (# kb, b, let !(# ky, y, fy #) = replaceF kx x fb
+                                in Tree ky y fy ff
                        #)
 
-          in go r' kz (wrap . Tree kb b fb) ff
+          in go1 kz z fz (Tree kb b fb) ff
+
+    go1 !ka a fa rebuild fs =
+      case fs of
+        Nil             -> (# ka, a, fa #)
+        Tree kb b fb ff ->
+          let !(# kz, z, fz #) =
+               if ka <= kb
+                 then (# ka, a, fa #)
+                 else (# kb, b, rebuild $ let !(# ky, y, fy #) = replaceF kx x fb
+                                          in Tree ky y fy ff
+                       #)
+
+          in go1 kz z fz (rebuild . Tree kb b fb) ff
 
 
 

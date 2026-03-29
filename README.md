@@ -15,7 +15,7 @@ Featuring:
   is a variant of a binomial heap that uses skew binary numbers to achieve far better
   meld efficiency at the cost of entry lookup performance.
 
-- `Data.Heap.Float`,``Data.Heap.Double` and `Data.Heap.Word` are copies of
+- `Data.Heap.Float`, `Data.Heap.Double` and `Data.Heap.Word` are copies of
   `Data.Heap.Ord` specialized for their respective data types.
 
   Benchmarks show these are roughly twice as fast as their generic counterparts
